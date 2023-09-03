@@ -1,0 +1,9 @@
+Alur Kerja
+Cara kerja ALSY yaitu sebagai berikut:
+1. Search “alsy58_bot” bot di telegram.
+2. Tekan mulai dan masukkan  perintah berupa list dengan struktur jam, channel, action. Contohnya seperti ini “22.00, lampu, off”
+3. Telegram akan mengirim data tersebut ke Raspberry Pi.
+4. Raspberry Pi akan mengolah dan menyimpan data tersebut dan memveri balasan ke telegram untuk memberi tahu kalau pada jam sekian channel 
+   yang dipilih akan dihidupkan/dimatikan.
+5. Saat perintah yang disimpan sudah sampai waktunya, Raspberry Pi akan mengirim data tersebut ke relay untuk menyambung atau memutuskan 
+   aliran listrik channel yang dipilih.

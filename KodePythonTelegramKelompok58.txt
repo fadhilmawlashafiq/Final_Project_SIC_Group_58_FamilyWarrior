@@ -1,0 +1,111 @@
+import telepot
+import time
+import re
+import RPi.GPIO as GPIO
+import datetime
+
+# Initialize GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
+# Define GPIO pins for each channel
+channels = {
+    "kipas": 16,
+    "lampu": 20,
+    "alarm": 21,
+    # Add more channels here
+}
+
+# Set up GPIO pins
+def setup_gpio():
+    for pin in channels.values():
+        GPIO.setup(pin, GPIO.OUT)
+
+# Initialize the Telegram bot
+TOKEN = "6361154452:AAH3XEqQu_1DVC8Qjm9OnxYdt5elHl3Qux4"
+bot = telepot.Bot(TOKEN)
+
+# Initialize the schedule as a list of tuples (time, channel, action)
+schedule = []
+
+chat_id = ''
+
+def handle(msg):
+    global chat_id
+    content_type, chat_type, chat_id = telepot.glance(msg)
+    
+    if content_type == 'text':
+        command = msg['text']
+        
+        if command == '/start':
+            response = "Welcome to your home automation bot!\nUse the format: time, channel, action (e.g., 18.00, kipas, on)\nSend '/start' to see this message again."
+        elif command.lower() == 'show the schedule':
+            if(len(schedule) != 0):
+                response = "\n".join([f"{time}: {channel} {action}" for time, channel, action in schedule])
+            else:
+                response = "There are no schedule!"
+        elif command.startswith('/remove'):
+            schedule_entry = tuple(command.split()[1:])
+            if(len(schedule_entry) == 3):
+                if(schedule_entry in schedule):
+                    schedule.remove(schedule_entry)
+                    response = f"Schedule entry {schedule_entry} has been removed."
+                else:
+                    response = f"Schedule entry {schedule_entry} not found."
+            else:
+                response = "Invalid command format. Use: /remove time, channel, action (e.g., /remove 18.00 kipas on)"
+        # Matikan Alarm dengan Jeda Waktu
+        elif command.lower() == 'turn off alarm':
+            # Add code to turn off the alarm here
+            GPIO.output(channels["alarm"], GPIO.HIGH)  # Turn on the alarm (buzzer) to stop the sound
+            time.sleep(1)  # Add a 1-second delay to allow the sound to stop
+            GPIO.output(channels["alarm"], GPIO.LOW)  # Turn off the alarm after the delay
+            response = "Alarm has been turned off."
+            bot.sendMessage(chat_id, response)
+        else:
+            # Regular expression to extract time, channel, and action
+            pattern = r'(\d+\.\d+),\s*(\w+),\s*(on|off)'
+            match = re.match(pattern, command)
+            
+            if match:
+                time_val = match.group(1)
+                channel = match.group(2)
+                action = match.group(3)
+    
+                if channel in channels:
+                    schedule.append((time_val, channel, action))
+                    response = f"Channel '{channel}' will be turned {action} at {time_val}"
+                else:
+                    response = f"Unknown channel '{channel}'"
+            else:
+                response = "Invalid command format. Use: time, channel, action (e.g., [18.00, kipas, on])"
+        print(f'{response}')
+        bot.sendMessage(chat_id, response)
+
+# Run the bot
+bot.message_loop(handle)
+print('Listening...')
+
+# Set up GPIO pins only once at the beginning
+setup_gpio()
+
+# Add the status checking code here
+for channel, pin in channels.items():
+    print(f"Checking GPIO pin {pin} for channel {channel}")
+    print(f"   Current state: {'HIGH' if GPIO.input(pin) == GPIO.HIGH else 'LOW'}")
+    
+# Keep the program running
+while True:
+    # Check if there are scheduled actions
+    current_time = datetime.datetime.now().strftime("%H.%M")
+    #print(type(current_time)) 
+    for time_val, channel, action in schedule:
+
+        scheduled_time = datetime.datetime.strptime(time_val, "%H.%M").time().strftime("%H.%M")
+        if scheduled_time == current_time:
+            pin = channels[channel]
+            GPIO.output(pin, GPIO.HIGH if action == "on" else GPIO.LOW)
+            response = f"Channel '{channel}' turned {'on' if action == 'on' else 'off'} at {time_val}"
+            bot.sendMessage(chat_id, response)
+    
+    time.sleep(59)
